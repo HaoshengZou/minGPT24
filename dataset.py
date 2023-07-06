@@ -1,5 +1,5 @@
 import os
-
+import pickle
 import torch
 from torch.utils.data import Dataset
 
@@ -17,20 +17,30 @@ class DatasetOf24Game(Dataset):
     all_train_data = []
     all_test_data = []
     all_data = []
-    train_test_spit_ratio = 4/6 # 20% of 24_game_all_data.txt is for training, 80% is for tesing.
-    with open(os.path.dirname(os.path.realpath(__file__)) + "/24_game_all_data.txt", "r") as f:
+
+    # train test split
+    with open('data/dataset1_9.pkl', 'rb') as f:
+        res = pickle.load(f)
+    my_train_xys, my_test_xys = res['train'], res['test']
+    my_test_digits = set(x for x, _ in my_test_xys)
+
+    with open(os.path.dirname(os.path.realpath(__file__)) + "/data/24_game_all_data.txt", "r") as f:
         for line in f:
             line = line.rstrip('\n')
             all_data_set.add(line)
             all_data.append(line)
-            if len(all_train_data) <= len(all_test_data) * train_test_spit_ratio:
-                all_train_data.append(line)
-            else:
+
+            digits = sorted(line[1: 11].split(', '))
+            digits_str = ' '.join(str(d) for d in digits)
+            if digits_str in my_test_digits:
                 all_test_data.append(line)
                 all_test_data_set.add(line)
-        # print(f"loaded {len(all_data_set)} lines from 24_game_all_data, {len(all_train_data)} lines for training, {len(all_test_data)} for testing!")
+            else:
+                all_train_data.append(line)
 
-    def __init__(self, split):
+    def __init__(self, split, return_tokenized=True):
+        self.return_tokenized = return_tokenized
+
         self.split = split # train/test        
         self.ixes = []
         if split == 'train':
@@ -57,9 +67,27 @@ class DatasetOf24Game(Dataset):
     def __getitem__(self, idx):
         # a data sample: [4, 8, 9, 3]: 8 + 4 = 12, 9 + 3 = 12, 12 + 12 = 24  
         s = self.ixes[idx]
-        dix = [DatasetOf24Game.ctoi[c] for c in s] # convert each character to its token index
-        # x will be input to GPT and y will be the associated expected outputs
-        x = torch.tensor(dix[:-1], dtype=torch.long)
-        y = torch.tensor(dix[1:], dtype=torch.long) # predict the next token in the sequence
-        y[:len(DatasetOf24Game.one_problem_sample)] = -1 # we will only train in the output locations. -1 will mask loss to zero
-        return x, y
+        if self.return_tokenized:
+            dix = [DatasetOf24Game.ctoi[c] for c in s] # convert each character to its token index
+            # x will be input to GPT and y will be the associated expected outputs
+            x = torch.tensor(dix[:-1], dtype=torch.long)
+            y = torch.tensor(dix[1:], dtype=torch.long) # predict the next token in the sequence
+            y[:len(DatasetOf24Game.one_problem_sample)] = -1 # we will only train in the output locations. -1 will mask loss to zero
+            return x, y
+        else:
+            return s
+
+
+if __name__ == '__main__':
+    dataset = DatasetOf24Game('all')
+    exit()
+    # print([dataset.ctoi[c] for c in '[4, 8, 9, 3]: 8 + 4 = 12, 9 + 3 = 12, 12 + 12 = 24  '])
+    # print('[5, 5, 5, 5]: 5 + 5 = 10, 5 + 10 = 15, 15 + 9 = 24  ' in dataset.all_data_set)
+    dataset = DatasetOf24Game('train', return_tokenized=False)
+    print(type(dataset[515]))
+    from torch.utils.data.dataloader import DataLoader
+    loader = DataLoader(dataset, batch_size=10)
+    for mini_batch in loader:
+        print(mini_batch)
+        print(type(mini_batch))
+        break

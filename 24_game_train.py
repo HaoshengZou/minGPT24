@@ -44,7 +44,7 @@ def get_config():
     # system
     C.system = ConfigNode()
     C.system.seed = 3407
-    C.system.work_dir = './out/get24'
+    C.system.work_dir = './out/data1_9_v2_vf'
 
     # model
     C.model = GPT.get_default_config()
@@ -53,7 +53,8 @@ def get_config():
     # trainer
     C.trainer = Trainer.get_default_config()
     C.trainer.learning_rate = 5e-4 # the model we're using is so small that we can go a bit faster
-    C.trainer.max_iters = 20000
+    C.trainer.batch_size = 512
+    C.trainer.max_iters = int(1e6)
 
     return C
 
@@ -90,12 +91,11 @@ if __name__ == '__main__':
 
     # helper function for the evaluation of a model
     def eval_split(trainer, split, max_batches=None):
-        dataset = {'train':train_dataset, 'test':test_dataset}[split]
+        dataset = {'train': train_dataset, 'test': test_dataset}[split]
         results = []
-        right_results = []
-        right_results_in_test = []
+        num_right = 0
         mistakes_printed_already = 0
-        loader = DataLoader(dataset, batch_size=100, num_workers=0, drop_last=False)
+        loader = DataLoader(dataset, batch_size=500, num_workers=0, drop_last=False)
         for b, (x, y) in enumerate(loader):
             x = x.to(trainer.device)
             y = y.to(trainer.device)
@@ -112,41 +112,41 @@ if __name__ == '__main__':
                 r = "".join([DatasetOf24Game.itoc[i] for i in r])
                 # r = r.rstrip('\n').replace(" ", "")
                 r = r.rstrip('\n')
-                results.append(r)
-                if r in DatasetOf24Game.all_data_set:
-                    right_results.append(r)
-                if r in DatasetOf24Game.all_test_data_set:
-                    right_results_in_test.append(r)
-                if not r in DatasetOf24Game.all_data_set and mistakes_printed_already < 5: # only print up to 5 mistakes to get a sense
+                num_right += int(r in DatasetOf24Game.all_data_set)  # 是一种解法就算对
+                if not r in DatasetOf24Game.all_data_set and mistakes_printed_already < 3: # only print up to 5 mistakes to get a sense
                     mistakes_printed_already += 1
                     print("GPT claims that " + r)
             if max_batches is not None and b+1 >= max_batches:
                 break
-        print(f"{split} final score: {len(right_results)} out of {len(results)} are right predications, {len(right_results_in_test)} out of all {len(right_results)} right predications are not in training data.")
-        return len(right_results)
+        # print(f"{split} final score: {len(right_results)} out of {len(results)} are right predications, {len(right_results_in_test)} out of all {len(right_results)} right predications are not in training data.")
+        accuracy = num_right / len(dataset)
+        print(f"{split} accuracy: {num_right} / {len(dataset)} = {accuracy:.3f}")
+        return accuracy
 
     # iteration callback
     top_score = 0
+    last_save_iter = 0
     def batch_end_callback(trainer):
-        global top_score
+        global top_score, last_save_iter
 
-        if trainer.iter_num % 10 == 0:
-            print(f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}")
-
-        if trainer.iter_num > 0 and trainer.iter_num % 500 == 0:
+        if trainer.iter_num > 0 and trainer.iter_num % 200 == 0:
             # evaluate both the train and test score
             model.eval()
             with torch.no_grad():
                 # train_score = eval_split(trainer, 'train', max_batches=5)
                 train_score = 0
-                test_score  = eval_split(trainer, 'test',  max_batches=10)
+                test_score  = eval_split(trainer, 'test',  max_batches=None)  # on 10 x 100 test data
             score = train_score + test_score
             # save the model if this is the best score we've seen so far
             if score > top_score:
                 top_score = score
+                last_save_iter = trainer.iter_num
                 print(f"saving model with new top score of {score}")
                 ckpt_path = os.path.join(config.system.work_dir, "model.pt")
                 torch.save(model.state_dict(), ckpt_path)
+
+            print(f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}, last save iter {last_save_iter}")
+
             # revert model to training mode
             model.train()
 
