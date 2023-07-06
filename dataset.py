@@ -2,6 +2,16 @@ import os
 import pickle
 import torch
 from torch.utils.data import Dataset
+from collections import defaultdict
+
+
+def split_str(line):
+    line = line.rstrip('\n')
+    digits = sorted(line[1: 11].split(', '))
+    digits_str = ' '.join(str(d) for d in digits)
+    solution_str = line[14:]
+    return digits_str, solution_str
+
 
 class DatasetOf24Game(Dataset):
     # initialize class vars 
@@ -23,6 +33,9 @@ class DatasetOf24Game(Dataset):
         res = pickle.load(f)
     my_train_xys, my_test_xys = res['train'], res['test']
     my_test_digits = set(x for x, _ in my_test_xys)
+    # x --> solution set y
+    all_train_mapping = defaultdict(set)
+    all_test_mapping = defaultdict(set)
 
     with open(os.path.dirname(os.path.realpath(__file__)) + "/data/24_game_all_data.txt", "r") as f:
         for line in f:
@@ -30,13 +43,14 @@ class DatasetOf24Game(Dataset):
             all_data_set.add(line)
             all_data.append(line)
 
-            digits = sorted(line[1: 11].split(', '))
-            digits_str = ' '.join(str(d) for d in digits)
+            digits_str, solution_str = split_str(line)
             if digits_str in my_test_digits:
                 all_test_data.append(line)
                 all_test_data_set.add(line)
+                all_test_mapping[digits_str].add(solution_str)
             else:
                 all_train_data.append(line)
+                all_train_mapping[digits_str].add(solution_str)
 
     def __init__(self, split, return_tokenized=True):
         self.return_tokenized = return_tokenized

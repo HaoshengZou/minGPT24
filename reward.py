@@ -15,5 +15,5 @@ def reward_v0(query, response, tokenizer):
 
 
 def reward_v1(query, response, tokenizer):
-    # 数字使用限制，用mask保证？
+    # 数字使用限制，用mask保证？看哪种更好写
     pass

@@ -84,7 +84,7 @@ if __name__ == '__main__':
     config.model.block_size = DatasetOf24Game.get_block_size()
     print(config)
     model = GPT(config.model)
-    print(model)
+    # print(model)
 
     # construct the trainer object
     trainer = Trainer(config.trainer, model, train_dataset)

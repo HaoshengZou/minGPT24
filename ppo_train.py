@@ -35,7 +35,7 @@ model_ref = create_reference_model(model)
 model_ref.to(device)
 
 # 2. tokenizer
-tokenizer = get_TokenizerV0(for_transformer=True)
+tokenizer = get_TokenizerV0(for_trl=True)
 tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
 # 3. initialize trainer
@@ -53,7 +53,7 @@ ppo_config = PPOConfig(
 ppo_trainer = PPOTrainer(ppo_config, model, model_ref, tokenizer, optimizer=opt)
 
 # 4. dataset
-train_dataset = DatasetOf24Game(split='all', return_tokenized=False)
+train_dataset = DatasetOf24Game(split='train', return_tokenized=False)
 train_loader = DataLoader(train_dataset, shuffle=True, drop_last=True, batch_size=ppo_config.batch_size)
 
 # 5. training loop

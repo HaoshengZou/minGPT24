@@ -23,9 +23,9 @@ class DummyJoin:
         return [f"{t}" for t in tokens]
 
 
-def get_TokenizerV0(for_transformer=False):
+def get_TokenizerV0(for_trl=False):
     tok = Tokenizer(WordLevel(ctoi, unk_token="[UNK]"))
-    if for_transformer:
+    if for_trl:
         tok = PreTrainedTokenizerFast(tokenizer_object=tok)
         tok._tokenizer.pre_tokenizer = PreTokenizer.custom(DummySplit())
         tok._tokenizer.decoder = Decoder.custom(DummyJoin())
@@ -37,7 +37,7 @@ def get_TokenizerV0(for_transformer=False):
 
 if __name__ == '__main__':
     ##### v0 tokenizer #####
-    tok = get_TokenizerV0(for_transformer=True)
+    tok = get_TokenizerV0(for_trl=True)
 
     res = tok.encode('[4, 8, 9, 3]: 8 + 4 = 12, 9 + 3 = 12, 12 + 12 = 24  ')
     print(res)
