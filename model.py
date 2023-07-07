@@ -239,7 +239,7 @@ class GPT(nn.Module):
         if self.dummy_v:
             return logits, loss, torch.zeros(logits.shape[:-1], dtype=torch.float, device=device)
         else:
-            return logits, loss, v
+            return logits, loss, v.squeeze(-1)
 
     @torch.no_grad()
     def generate(self, idx, max_new_tokens, temperature=1.0, do_sample=False, top_k=None):
