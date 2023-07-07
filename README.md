@@ -1,4 +1,5 @@
 # 训练GPT算24点
+我的工作主要在：`data/dataset1_9.pkl, 24_game_train.py(part), dataset.py(part), eval.py, model.py(part), ppo_train.py, reward.py, sft_split.ipynb, tokenizer.py`
 
 ## abstract
 目前考虑这样格式的输入+输出：`[4, 8, 9, 3]: 8 + 4 = 12, 9 + 3 = 12, 12 + 12 = 24`
