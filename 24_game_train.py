@@ -43,8 +43,8 @@ def get_config():
 
     # system
     C.system = ConfigNode()
-    C.system.seed = 515
-    C.system.work_dir = './out/data1_9_v3_vf'
+    C.system.seed = 3407
+    C.system.work_dir = './out/data1_9_v2_vf'
 
     # model
     C.model = GPT.get_default_config()
@@ -54,7 +54,7 @@ def get_config():
     C.trainer = Trainer.get_default_config()
     C.trainer.learning_rate = 5e-4 # the model we're using is so small that we can go a bit faster
     C.trainer.batch_size = 512
-    C.trainer.max_iters = 5000
+    C.trainer.max_iters = int(1e6)
 
     return C
 
@@ -143,11 +143,6 @@ if __name__ == '__main__':
                 last_save_iter = trainer.iter_num
                 print(f"saving model with new top score of {score}")
                 ckpt_path = os.path.join(config.system.work_dir, "model.pt")
-                torch.save(model.state_dict(), ckpt_path)
-
-            if trainer.iter_num == 2000:
-                print(f"\nsaving model at 2000 iter")
-                ckpt_path = os.path.join(config.system.work_dir, "model_2k.pt")
                 torch.save(model.state_dict(), ckpt_path)
 
             print(f"iter_dt {trainer.iter_dt * 1000:.2f}ms; iter {trainer.iter_num}: train loss {trainer.loss.item():.5f}, last save iter {last_save_iter}")
