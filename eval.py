@@ -21,7 +21,7 @@ def get_config():
 
     # system
     C.system = ConfigNode()
-    C.system.seed = 3407
+    C.system.seed = 515  # 3407
     C.system.work_dir = './out/data1_9_v2_vf'
 
     # model
@@ -35,6 +35,34 @@ def get_config():
     C.trainer.max_iters = int(1e6)
 
     return C
+
+def eval(model, dataset, tokenizer, device):
+    results = list()
+    for x, solutions in dataset.items():
+        # prepare input
+        x_digits = x.split(' ')
+        perms = permutations(x_digits)
+        can_solve = False
+        inputs = list()
+        for perm in perms:
+            inp = '[' + ', '.join(str(digit) for digit in perm) + ']: '
+            # print('inp:', inp)
+            inputs.append(inp)
+
+        query_tensors = tokenizer(inputs, return_tensors="pt").to(device)['input_ids']  # P4 x len
+        response_tensors = respond_to_batch(model, query_tensors,
+                                            txt_len=len(DatasetOf24Game.one_result_sample))
+        respones = [tokenizer.decode(response_tensors[i]) for i in range(len(response_tensors))]
+        # print('out:', response)
+        if any(r in solutions for r in respones):
+            can_solve = True
+
+        results.append(int(can_solve))
+        # print(f'{x_digits} solved? {can_solve}, {response if can_solve else None}')
+        # print(f'{x_digits} solved? {can_solve}')
+
+    return sum(results) / len(results)
+
 
 if __name__ == '__main__':
     # get default config and overrides from the command line, if any
@@ -59,30 +87,11 @@ if __name__ == '__main__':
     model.eval()
     model_path = '/out/data1_9_v2_vf/model.pt'
     model.load_state_dict(torch.load(os.path.dirname(os.path.realpath(__file__)) + model_path, map_location=torch.device(device)), strict=False)
+    print(f'loaded model from {model_path}')
 
     tokenizer = get_TokenizerV0(for_trl=True)
 
     dataset = DatasetOf24Game.all_test_mapping
-    results = list()
-    for x, solutions in dataset.items():
-        # prepare input
-        x_digits = x.split(' ')
-        perms = permutations(x_digits)
-        can_solve = False
-        for perm in perms:
-            inp = '[' + ', '.join(str(digit) for digit in perm) + ']: '
-            # print('inp:', inp)
 
-            query_tensors = tokenizer(inp, return_tensors="pt").to(device)['input_ids']  # bs 1 x len
-            response_tensors = respond_to_batch(model, query_tensors,
-                                                txt_len=len(DatasetOf24Game.one_result_sample))
-            response = tokenizer.decode(response_tensors[0])
-            # print('out:', response)
-            if response in solutions:
-                can_solve = True
-                break
-
-        results.append(int(can_solve))
-        print(f'{x_digits} solved? {can_solve}, {response if can_solve else None}')
-
-    print('test solve ratio:', sum(results) / len(results))
+    model.train()
+    print('test solve ratio:', eval(model, dataset, tokenizer, device))

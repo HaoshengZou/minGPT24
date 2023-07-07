@@ -3,19 +3,24 @@ import torch
 import os
 from model import GPT
 from dataset import DatasetOf24Game
-from utils import ConfigNode
+from utils import ConfigNode, set_seed
 from reward import reward_v0
 from trl import PPOTrainer, PPOConfig, create_reference_model
 from trl.core import respond_to_batch
 from tokenizer import get_TokenizerV0
 from torch.utils.data.dataloader import DataLoader
 from trainer import Trainer
+from eval import eval
 
 
 # HParams
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 BATCH_SIZE = 256
 PATH_TO_LOGS = 'logs/v0'
+sft_model_path = '/out/data1_9_v2_vf/model.pt'
+rl_dir = 'out/rl_16.54/'
+os.makedirs(rl_dir, exist_ok=True)
+set_seed(3407)
 
 # 1. get models
 # construct the model
@@ -29,7 +34,8 @@ model = GPT(config.model, dummy_v=True)
 model.to(device)
 # print(model)
 model.load_state_dict(torch.load(os.path.dirname(
-    os.path.realpath(__file__)) + "/out/get24/4train-6test-6layer-6head-384emb-20000steps.model.pt", map_location=torch.device(device)))
+    os.path.realpath(__file__)) + sft_model_path, map_location=torch.device(device)))
+print(f'loaded sft model from {sft_model_path}')
 
 model_ref = create_reference_model(model)
 model_ref.to(device)
@@ -58,6 +64,10 @@ train_loader = DataLoader(train_dataset, shuffle=True, drop_last=True, batch_siz
 
 # 5. training loop
 epoch = 0
+model.eval()
+max_eval_acc = eval(model, DatasetOf24Game.all_test_mapping, tokenizer, device)  # 初始分数
+model.train()
+print(f"Epoch 0: init eval acc {max_eval_acc}")
 while True:
     for batch in train_loader:
         # get model response
@@ -78,3 +88,14 @@ while True:
 
         epoch += 1
         print(f"Epoch {epoch}: ppo/mean_scores {train_stats['ppo/mean_scores']:.2f}, ppo/returns/mean {train_stats['ppo/returns/mean']:.2f}")
+
+        # eval on test
+        model.eval()
+        eval_acc = eval(model, DatasetOf24Game.all_test_mapping, tokenizer, device)
+        model.train()
+        if eval_acc > max_eval_acc:
+            max_eval_acc = eval_acc
+            ckpt_path = os.path.join(rl_dir, "model.pt")
+            torch.save(model.state_dict(), ckpt_path)
+            print(f'saved new model to {ckpt_path}')
+        print(f"Epoch {epoch}: eval acc {eval_acc}, max_eval_acc {max_eval_acc}")
