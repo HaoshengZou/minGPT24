@@ -22,7 +22,6 @@ def get_config():
     # system
     C.system = ConfigNode()
     C.system.seed = 515  # 3407
-    C.system.work_dir = './out/data1_9_v2_vf'
 
     # model
     C.model = GPT.get_default_config()
@@ -36,7 +35,7 @@ def get_config():
 
     return C
 
-def eval(model, dataset, tokenizer, device):
+def eval(model, dataset, tokenizer, device, sample=True):
     results = list()
     for x, solutions in dataset.items():
         # prepare input
@@ -50,8 +49,12 @@ def eval(model, dataset, tokenizer, device):
             inputs.append(inp)
 
         query_tensors = tokenizer(inputs, return_tensors="pt").to(device)['input_ids']  # P4 x len
-        response_tensors = respond_to_batch(model, query_tensors,
-                                            txt_len=len(DatasetOf24Game.one_result_sample))
+        if sample:
+            response_tensors = respond_to_batch(model, query_tensors,
+                                                txt_len=len(DatasetOf24Game.one_result_sample))
+        else:
+            response_tensors = model.generate(query_tensors, len(DatasetOf24Game.one_result_sample), do_sample=False)
+            response_tensors = response_tensors[:, -len(DatasetOf24Game.one_result_sample):]
         respones = [tokenizer.decode(response_tensors[i]) for i in range(len(response_tensors))]
         # print('out:', response)
         if any(r in solutions for r in respones):
@@ -94,4 +97,4 @@ if __name__ == '__main__':
     dataset = DatasetOf24Game.all_test_mapping
 
     model.train()
-    print('test solve ratio:', eval(model, dataset, tokenizer, device))
+    print('test solve ratio:', eval(model, dataset, tokenizer, device, sample=True))
