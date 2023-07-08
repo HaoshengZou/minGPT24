@@ -1,6 +1,11 @@
 # 训练GPT算24点
 我的工作主要在：`data/dataset1_9.pkl, 24_game_train.py(part), dataset.py(part), eval.py, model.py(part), ppo_train.py, reward.py, sft_split.ipynb, tokenizer.py`
 
+**update 7.8**
+现评估方案，最高78%正确率由不学value network的PPO得到（policy gradient里advantage直接用return），学value network的PPO最高可到81%
+![res81](img/res81.png)
+
+
 ## abstract
 目前考虑这样格式的输入+输出：`[4, 8, 9, 3]: 8 + 4 = 12, 9 + 3 = 12, 12 + 12 = 24`
 
